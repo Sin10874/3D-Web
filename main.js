@@ -582,35 +582,61 @@ class ParticleSystem {
 
     setupHandTracking() {
         const videoElement = document.getElementById('video');
+        const loadingElement = document.getElementById('loading');
 
-        this.hands = new Hands({
-            locateFile: (file) => {
-                return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+        // 隐藏加载屏幕的函数
+        const hideLoading = () => {
+            if (loadingElement) {
+                loadingElement.style.opacity = '0';
+                setTimeout(() => {
+                    loadingElement.style.display = 'none';
+                }, 500);
             }
-        });
+        };
 
-        this.hands.setOptions({
-            maxNumHands: 1,
-            modelComplexity: 1,
-            minDetectionConfidence: 0.5,
-            minTrackingConfidence: 0.5
-        });
+        try {
+            this.hands = new Hands({
+                locateFile: (file) => {
+                    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+                }
+            });
 
-        this.hands.onResults((results) => this.onHandsResults(results));
+            this.hands.setOptions({
+                maxNumHands: 1,
+                modelComplexity: 1,
+                minDetectionConfidence: 0.5,
+                minTrackingConfidence: 0.5
+            });
 
-        const camera = new Camera(videoElement, {
-            onFrame: async () => {
-                await this.hands.send({ image: videoElement });
-            },
-            width: 640,
-            height: 480
-        });
+            this.hands.onResults((results) => this.onHandsResults(results));
 
-        camera.start();
+            const camera = new Camera(videoElement, {
+                onFrame: async () => {
+                    try {
+                        await this.hands.send({ image: videoElement });
+                    } catch (e) {
+                        console.warn('Hand tracking frame error:', e);
+                    }
+                },
+                width: 640,
+                height: 480
+            });
 
-        setTimeout(() => {
-            document.getElementById('loading').style.display = 'none';
-        }, 2000);
+            camera.start().then(() => {
+                console.log('Camera started successfully');
+                hideLoading();
+            }).catch((err) => {
+                console.warn('Camera failed to start:', err);
+                hideLoading(); // 即使摄像头失败也隐藏加载
+            });
+
+            // 备用：3秒后强制隐藏加载屏幕
+            setTimeout(hideLoading, 3000);
+
+        } catch (error) {
+            console.warn('Hand tracking setup failed:', error);
+            hideLoading(); // 手势追踪失败也隐藏加载
+        }
     }
 
     onHandsResults(results) {
