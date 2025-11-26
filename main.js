@@ -583,9 +583,12 @@ class ParticleSystem {
     setupHandTracking() {
         const videoElement = document.getElementById('video');
         const loadingElement = document.getElementById('loading');
+        let loadingHidden = false;
 
-        // 隐藏加载屏幕的函数
+        // 隐藏加载屏幕的函数（只执行一次）
         const hideLoading = () => {
+            if (loadingHidden) return;
+            loadingHidden = true;
             if (loadingElement) {
                 loadingElement.style.opacity = '0';
                 setTimeout(() => {
@@ -622,20 +625,18 @@ class ParticleSystem {
                 height: 480
             });
 
+            // 启动摄像头（这会触发权限请求）
             camera.start().then(() => {
                 console.log('Camera started successfully');
                 hideLoading();
             }).catch((err) => {
                 console.warn('Camera failed to start:', err);
-                hideLoading(); // 即使摄像头失败也隐藏加载
+                hideLoading(); // 用户拒绝或发生错误时隐藏加载
             });
-
-            // 备用：3秒后强制隐藏加载屏幕
-            setTimeout(hideLoading, 3000);
 
         } catch (error) {
             console.warn('Hand tracking setup failed:', error);
-            hideLoading(); // 手势追踪失败也隐藏加载
+            hideLoading(); // 手势追踪初始化失败时隐藏加载
         }
     }
 
