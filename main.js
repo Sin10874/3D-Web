@@ -33,8 +33,9 @@ class ParticleModelGenerator {
             const z2 = z * z;
             const y3 = y * y * y;
 
-            // 调整系数 2.25 -> 1.2 让爱心前后更厚实饱满
-            const zCoef = 1.2; 
+            // 调整系数 2.25 -> 5.0 让爱心变得很薄，更像2.5D剪纸风格
+            // z系数越大，z方向允许的范围越小，从而越薄
+            const zCoef = 5.0; 
             
             const a = x2 + zCoef * z2 + y2 - 1;
             const term2 = x2 * y3;
@@ -60,7 +61,7 @@ class ParticleModelGenerator {
         return { positions, colors };
     }
 
-    static butterfly(count) { // 替换 Flower 为蝴蝶
+    static butterfly(count) { 
         count = this.getPointCount(count);
         const positions = [];
         const colors = [];
@@ -71,7 +72,7 @@ class ParticleModelGenerator {
         for (let i = 0; i < count; i++) {
             const r = Math.random();
             
-            if (r < 0.1) { // 身体
+            if (r < 0.1) { // 身体 (细长)
                 const t = Math.random() * 2 - 1; // -1 to 1
                 const x = 0;
                 const y = t * 4;
@@ -79,30 +80,30 @@ class ParticleModelGenerator {
                 positions.push(x, y, z);
                 colors.push(cBody.r, cBody.g, cBody.b);
             } else { // 翅膀
-                // 参数方程模拟蝴蝶翅膀
-                const t = Math.random() * Math.PI * 2;
-                // 蝴蝶曲线近似
-                const radius = Math.exp(Math.cos(t)) - 2*Math.cos(4*t) + Math.pow(Math.sin(t/12), 5);
+                // 使用更精准的参数方程
+                // 参考蝴蝶曲线 (Butterfly Curve) 但做调整以适应 3D 粒子
+                const t = Math.random() * 12 * Math.PI; // 增加 t 的范围
                 
-                // 增加随机性填充
-                const fill = Math.sqrt(Math.random()) * 5 * radius;
+                // 核心形状公式
+                const part1 = Math.exp(Math.cos(t));
+                const part2 = 2 * Math.cos(4 * t);
+                const part3 = Math.pow(Math.sin(t / 12), 5);
+                const rBase = part1 - part2 + part3;
                 
-                // 左右两翼
-                const side = Math.random() > 0.5 ? 1 : -1;
+                // 随机填充
+                const fill = Math.sqrt(Math.random()) * 2.5; // 缩放系数
                 
-                const x = Math.sin(t) * fill * side;
-                const y = Math.cos(t) * fill;
+                const x = Math.sin(t) * rBase * fill;
+                const y = Math.cos(t) * rBase * fill;
                 
-                // 翅膀微翘
-                const z = Math.abs(x) * 0.5 * Math.sin(Date.now() * 0.001) + (Math.random()-0.5); 
-                // 注意：这里是静态生成，动画在 animate 中，所以 z 只是初始角度
-                // 简化为固定翘起
-                const zFixed = Math.abs(x) * 0.3;
+                // Z轴: 增加翅膀的立体折叠感 (V型)
+                // 越靠近中心(x=0) z越小，越靠外 z越大
+                const z = Math.abs(x) * 0.5 + (Math.random()-0.5)*0.2;
 
-                positions.push(x, y, zFixed);
+                positions.push(x * 1.5, y * 1.5, z); // 整体放大一点
                 
                 const dist = Math.sqrt(x*x + y*y);
-                const c = cWing.clone().lerp(cWingEdge, dist/10);
+                const c = cWing.clone().lerp(cWingEdge, dist/5); // 颜色随距离渐变
                 colors.push(c.r, c.g, c.b);
             }
         }
@@ -433,71 +434,6 @@ class ParticleModelGenerator {
         }
         return { positions, colors };
     }
-
-    static generateFromImage(imgData, width, height, count) {
-        count = this.getPointCount(count);
-        const positions = [];
-        const colors = [];
-        const pixels = [];
-
-        // 1. 扫描图片提取有效像素
-        // 步长 sampling：为了性能，不必扫描每个像素，尤其大图
-        const step = Math.max(1, Math.floor(Math.sqrt((width * height) / 40000))); 
-        
-        for (let y = 0; y < height; y += step) {
-            for (let x = 0; x < width; x += step) {
-                const index = (y * width + x) * 4;
-                const alpha = imgData.data[index + 3];
-                
-                // 忽略透明像素和过暗像素(可选)
-                if (alpha > 20) {
-                    const r = imgData.data[index] / 255;
-                    const g = imgData.data[index + 1] / 255;
-                    const b = imgData.data[index + 2] / 255;
-                    
-                    // 简单的亮度计算
-                    const brightness = (r + g + b) / 3;
-                    
-                    pixels.push({ x, y, r, g, b, brightness });
-                }
-            }
-        }
-
-        if (pixels.length === 0) {
-            // 防止空数据崩溃，返回一个默认球体
-            return this.heart(count);
-        }
-
-        // 2. 随机采样生成粒子
-        const aspect = width / height;
-        const scale = 10; // 基础缩放大小
-
-        for (let i = 0; i < count; i++) {
-            // 随机取一个像素点
-            const p = pixels[Math.floor(Math.random() * pixels.length)];
-            
-            // 映射坐标: 图片中心 (width/2, height/2) -> 3D原点 (0,0)
-            // y轴在图片中是向下的，3D中通常y向上，所以取反
-            const px = (p.x / width - 0.5) * scale * aspect;
-            const py = -(p.y / height - 0.5) * scale;
-            
-            // z轴：给予一定的随机厚度，并根据亮度做一点浮雕效果
-            // 亮的地方凸起一点
-            const pz = (Math.random() - 0.5) * 0.5 + p.brightness * 1.5;
-
-            // 添加一点微小的随机抖动，避免粒子排列过于网格化
-            const jitter = 0.05;
-            positions.push(
-                px + (Math.random() - 0.5) * jitter, 
-                py + (Math.random() - 0.5) * jitter, 
-                pz
-            );
-            
-            colors.push(p.r, p.g, p.b);
-        }
-
-        return { positions, colors };
-    }
 }
 
 // ====== 主应用类 ======
@@ -517,9 +453,6 @@ class ParticleSystem {
         this.currentScale = 1.2;
         this.targetRotation = new THREE.Euler(0, 0, 0);
         this.isHandDetected = false;
-        
-        // 自定义模型数据缓存
-        this.customModelData = null;
 
         this.init();
         this.setupHandTracking();
@@ -580,16 +513,8 @@ class ParticleSystem {
             this.particles.material.dispose();
         }
 
-        let data;
         // 获取模型数据 (位置和颜色)
-        if (modelType === 'custom' && this.customModelData) {
-            data = this.customModelData;
-        } else {
-            // 如果请求 custom 但没有数据，回退到 heart
-            if (modelType === 'custom') modelType = 'heart';
-            data = ParticleModelGenerator[modelType](this.particleCount);
-        }
-        
+        const data = ParticleModelGenerator[modelType](this.particleCount);
         this.basePositions = data.positions;
         this.baseColors = data.colors;
 
@@ -792,61 +717,6 @@ class ParticleSystem {
             if (!document.fullscreenElement) {
                 controlPanel.classList.remove('hidden');
             }
-        });
-
-        // 图片上传处理
-        const imageUpload = document.getElementById('imageUpload');
-        imageUpload.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                const img = new Image();
-                img.onload = () => {
-                    // 创建临时 canvas 提取像素数据
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-                    
-                    // 限制最大尺寸以防性能问题
-                    const maxSize = 512;
-                    let width = img.width;
-                    let height = img.height;
-                    
-                    if (width > height) {
-                        if (width > maxSize) {
-                            height *= maxSize / width;
-                            width = maxSize;
-                        }
-                    } else {
-                        if (height > maxSize) {
-                            width *= maxSize / height;
-                            height = maxSize;
-                        }
-                    }
-
-                    canvas.width = width;
-                    canvas.height = height;
-                    ctx.drawImage(img, 0, 0, width, height);
-                    
-                    const imgData = ctx.getImageData(0, 0, width, height);
-                    
-                    // 生成粒子数据并缓存
-                    this.customModelData = ParticleModelGenerator.generateFromImage(
-                        imgData, 
-                        width, 
-                        height, 
-                        this.particleCount
-                    );
-
-                    // 切换到自定义模式
-                    // 取消其他按钮激活状态
-                    modelButtons.forEach(b => b.classList.remove('active'));
-                    this.createParticles('custom');
-                };
-                img.src = event.target.result;
-            };
-            reader.readAsDataURL(file);
         });
     }
 
