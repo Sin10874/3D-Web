@@ -580,7 +580,7 @@ class ParticleSystem {
         }
     }
 
-    setupHandTracking() {
+    async setupHandTracking() {
         const videoElement = document.getElementById('video');
         const loadingElement = document.getElementById('loading');
         let loadingHidden = false;
@@ -596,6 +596,23 @@ class ParticleSystem {
                 }, 500);
             }
         };
+
+        // 先用原生 API 请求摄像头权限
+        try {
+            console.log('Requesting camera permission...');
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { width: 640, height: 480 } 
+            });
+            console.log('Camera permission granted');
+            
+            // 停止这个临时流，让 MediaPipe Camera 接管
+            stream.getTracks().forEach(track => track.stop());
+            
+        } catch (err) {
+            console.warn('Camera permission denied or error:', err);
+            hideLoading();
+            return; // 权限被拒绝，直接返回
+        }
 
         try {
             this.hands = new Hands({
@@ -625,18 +642,18 @@ class ParticleSystem {
                 height: 480
             });
 
-            // 启动摄像头（这会触发权限请求）
+            // 启动摄像头
             camera.start().then(() => {
-                console.log('Camera started successfully');
+                console.log('MediaPipe camera started successfully');
                 hideLoading();
             }).catch((err) => {
-                console.warn('Camera failed to start:', err);
-                hideLoading(); // 用户拒绝或发生错误时隐藏加载
+                console.warn('MediaPipe camera failed to start:', err);
+                hideLoading();
             });
 
         } catch (error) {
             console.warn('Hand tracking setup failed:', error);
-            hideLoading(); // 手势追踪初始化失败时隐藏加载
+            hideLoading();
         }
     }
 
