@@ -3,217 +3,363 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D粒子交互系统</title>
+    <title>3D Particle System</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;500;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --primary-color: #00f3ff;
+            --bg-color: #050510;
+            --panel-bg: rgba(10, 10, 20, 0.75);
+            --border-color: rgba(0, 243, 255, 0.3);
+            --text-color: #e0e0e0;
+            --hover-bg: rgba(0, 243, 255, 0.15);
+        }
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            user-select: none;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            font-family: 'Exo 2', sans-serif;
             overflow: hidden;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background-color: var(--bg-color);
+            color: var(--text-color);
         }
 
         #canvas-container {
             width: 100vw;
             height: 100vh;
             position: relative;
+            z-index: 1;
         }
 
         #video {
             position: absolute;
             top: 20px;
             right: 20px;
-            width: 240px;
-            height: 180px;
-            border-radius: 12px;
-            border: 3px solid rgba(255, 255, 255, 0.3);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            width: 160px;
+            height: 120px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            opacity: 0.8;
             transform: scaleX(-1);
-            z-index: 100;
-            display: none;
+            z-index: 10;
+            display: none; /* Hide video by default, maybe show it small */
+        }
+
+        /* HUD Overlay Style */
+        .hud-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 5;
+            background: 
+                linear-gradient(90deg, rgba(0,243,255,0.03) 1px, transparent 1px) 0 0 / 100px 100px,
+                linear-gradient(0deg, rgba(0,243,255,0.03) 1px, transparent 1px) 0 0 / 100px 100px;
         }
 
         .control-panel {
             position: absolute;
-            top: 20px;
-            left: 20px;
-            background: rgba(255, 255, 255, 0.15);
-            backdrop-filter: blur(10px);
-            border-radius: 16px;
+            top: 40px;
+            left: 40px;
+            width: 300px;
+            background: var(--panel-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border-color);
+            border-left: 4px solid var(--primary-color);
             padding: 24px;
-            min-width: 280px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(255, 255, 255, 0.2);
             z-index: 100;
-            transition: opacity 0.3s ease, visibility 0.3s ease;
+            pointer-events: auto;
+            transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+            clip-path: polygon(
+                0 0, 
+                100% 0, 
+                100% calc(100% - 20px), 
+                calc(100% - 20px) 100%, 
+                0 100%
+            );
         }
 
         .control-panel.hidden {
+            transform: translateX(-150%);
             opacity: 0;
-            visibility: hidden;
+        }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 12px;
         }
 
         .control-panel h2 {
-            color: white;
-            font-size: 20px;
-            margin-bottom: 20px;
-            font-weight: 600;
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--primary-color);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin: 0;
         }
 
         .control-group {
-            margin-bottom: 20px;
+            margin-bottom: 24px;
         }
 
         .control-group label {
             display: block;
-            color: white;
-            font-size: 14px;
-            margin-bottom: 10px;
-            font-weight: 500;
+            color: rgba(255,255,255,0.6);
+            font-size: 12px;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
 
         .model-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 8px;
-            margin-bottom: 20px;
         }
 
         .model-btn {
-            padding: 10px;
-            background: rgba(255, 255, 255, 0.2);
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 8px;
-            color: white;
+            padding: 10px 0;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-color);
             cursor: pointer;
-            transition: all 0.3s ease;
-            font-size: 12px;
+            transition: all 0.2s ease;
+            font-family: 'Exo 2', sans-serif;
+            font-size: 11px;
             font-weight: 500;
+            text-align: center;
+            border-radius: 2px;
         }
 
         .model-btn:hover {
-            background: rgba(255, 255, 255, 0.3);
-            transform: translateY(-2px);
+            background: var(--hover-bg);
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+            box-shadow: 0 0 10px rgba(0, 243, 255, 0.2);
         }
 
         .model-btn.active {
-            background: rgba(255, 255, 255, 0.4);
-            border-color: white;
-            box-shadow: 0 4px 12px rgba(255, 255, 255, 0.3);
+            background: rgba(0, 243, 255, 0.2);
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.3);
         }
 
         .color-picker-wrapper {
             display: flex;
             align-items: center;
-            gap: 12px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 8px;
+            border-radius: 2px;
         }
 
         #colorPicker {
-            width: 60px;
-            height: 40px;
+            width: 40px;
+            height: 25px;
             border: none;
-            border-radius: 8px;
             cursor: pointer;
             background: transparent;
+            margin-right: 12px;
         }
 
         .color-label {
-            color: white;
-            font-size: 13px;
+            font-size: 12px;
+            color: rgba(255,255,255,0.8);
         }
 
-        .fullscreen-btn {
+        .action-btn {
             width: 100%;
             padding: 12px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border: none;
-            border-radius: 8px;
-            color: white;
+            background: transparent;
+            border: 1px solid var(--primary-color);
+            color: var(--primary-color);
             cursor: pointer;
-            font-size: 14px;
-            font-weight: 600;
+            font-family: 'Exo 2', sans-serif;
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
             transition: all 0.3s ease;
             margin-top: 10px;
+            position: relative;
+            overflow: hidden;
         }
 
-        .fullscreen-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        .action-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 243, 255, 0.2), transparent);
+            transition: 0.5s;
+        }
+
+        .action-btn:hover::before {
+            left: 100%;
+        }
+
+        .action-btn:hover {
+            background: rgba(0, 243, 255, 0.1);
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.2);
         }
 
         .gesture-info {
             position: absolute;
-            bottom: 20px;
+            bottom: 40px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.7);
-            backdrop-filter: blur(10px);
-            color: white;
-            padding: 12px 24px;
-            border-radius: 24px;
-            font-size: 14px;
+            display: flex;
+            gap: 40px;
             z-index: 100;
-            animation: pulse 2s infinite;
         }
 
-        @keyframes pulse {
-            0%, 100% { opacity: 0.8; }
-            50% { opacity: 1; }
+        .gesture-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: rgba(255,255,255,0.8);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
 
-        .loading {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: white;
+        .gesture-icon {
+            width: 40px;
+            height: 40px;
+            border: 1px solid var(--primary-color);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 8px;
+            box-shadow: 0 0 10px rgba(0, 243, 255, 0.2);
             font-size: 18px;
-            z-index: 1000;
         }
+
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #050510;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            transition: opacity 0.5s;
+        }
+
+        .loader {
+            width: 150px;
+            height: 2px;
+            background: rgba(255,255,255,0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .loader::after {
+            content: '';
+            position: absolute;
+            left: -50%;
+            width: 50%;
+            height: 100%;
+            background: var(--primary-color);
+            animation: loading 1.5s infinite ease-in-out;
+        }
+
+        @keyframes loading {
+            0% { left: -50%; }
+            100% { left: 100%; }
+        }
+
+        /* Tech decorative corners */
+        .corner {
+            position: fixed;
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--primary-color);
+            z-index: 90;
+            opacity: 0.5;
+        }
+        .top-left { top: 20px; left: 20px; border-right: none; border-bottom: none; }
+        .top-right { top: 20px; right: 20px; border-left: none; border-bottom: none; }
+        .bottom-left { bottom: 20px; left: 20px; border-right: none; border-top: none; }
+        .bottom-right { bottom: 20px; right: 20px; border-left: none; border-top: none; }
+
     </style>
 </head>
 <body>
-    <div id="canvas-container"></div>
+    <div class="hud-overlay"></div>
+    <div class="corner top-left"></div>
+    <div class="corner top-right"></div>
+    <div class="corner bottom-left"></div>
+    <div class="corner bottom-right"></div>
 
+    <div id="canvas-container"></div>
     <video id="video" autoplay playsinline></video>
 
     <div class="control-panel">
-        <h2>🎨 粒子控制面板</h2>
+        <div class="panel-header">
+            <h2>SYSTEM CONTROL</h2>
+            <div style="width: 8px; height: 8px; background: var(--primary-color); border-radius: 50%; box-shadow: 0 0 10px var(--primary-color);"></div>
+        </div>
 
         <div class="control-group">
-            <label>选择模型</label>
+            <label>Model Select</label>
             <div class="model-grid">
-                <button class="model-btn active" data-model="heart">❤️ 爱心</button>
-                <button class="model-btn" data-model="butterfly">🦋 蝴蝶</button>
-                <button class="model-btn" data-model="saturn">🌌 银河</button>
-                <button class="model-btn" data-model="water">💧 水流</button>
-                <button class="model-btn" data-model="firework">🎆 烟花</button>
-                <button class="model-btn" data-model="cat">🐱 猫头</button>
-                <button class="model-btn" data-model="cloud">☁️ 云朵</button>
-                <button class="model-btn" data-model="doraemon">🤖 哆啦A梦</button>
+                <button class="model-btn active" data-model="heart">Heart</button>
+                <button class="model-btn" data-model="butterfly">Butterfly</button>
+                <button class="model-btn" data-model="saturn">Galaxy</button>
+                <button class="model-btn" data-model="water">Water</button>
+                <button class="model-btn" data-model="firework">Firework</button>
+                <button class="model-btn" data-model="cat">Cat</button>
+                <button class="model-btn" data-model="cloud">Cloud</button>
+                <button class="model-btn" data-model="doraemon">Robot</button>
             </div>
         </div>
 
         <div class="control-group">
-            <label>粒子颜色</label>
+            <label>Particle Color</label>
             <div class="color-picker-wrapper">
-                <input type="color" id="colorPicker" value="#ff69b4">
-                <span class="color-label">选择颜色</span>
+                <input type="color" id="colorPicker" value="#00f3ff">
+                <span class="color-label">CUSTOMIZE</span>
             </div>
         </div>
 
-        <button class="fullscreen-btn" id="fullscreenBtn">🖥️ 全屏模式</button>
+        <button class="action-btn" id="fullscreenBtn">TOGGLE FULLSCREEN</button>
     </div>
 
     <div class="gesture-info">
-        ✋ 张开手掌扩散粒子 | ✊ 握紧拳头收缩粒子
+        <div class="gesture-item">
+            <div class="gesture-icon">✋</div>
+            <span>Spread</span>
+        </div>
+        <div class="gesture-item">
+            <div class="gesture-icon">✊</div>
+            <span>Gather</span>
+        </div>
     </div>
 
-    <div class="loading" id="loading">加载中...</div>
+    <div class="loading-screen" id="loading">
+        <div class="loader"></div>
+    </div>
 
     <script type="module" src="/main.js"></script>
 </body>

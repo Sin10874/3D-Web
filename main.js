@@ -489,9 +489,9 @@ class ParticleSystem {
         
         const bloomPass = new UnrealBloomPass(
             new THREE.Vector2(window.innerWidth, window.innerHeight),
-            1.5, // strength
-            0.4, // radius
-            0.85 // threshold
+            2.0, // strength (higher for neon effect)
+            0.5, // radius
+            0.2  // threshold (lower to make more particles glow)
         );
 
         this.composer = new EffectComposer(this.renderer);
@@ -523,7 +523,7 @@ class ParticleSystem {
         geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(this.basePositions), 3));
         geometry.setAttribute('color', new THREE.BufferAttribute(new Float32Array(this.baseColors), 3));
 
-        // 改进的纹理生成 (更高质量的光点)
+        // 改进的纹理生成 (更锐利的科技感光点)
         const canvas = document.createElement('canvas');
         canvas.width = 128; // 增加分辨率
         canvas.height = 128;
@@ -531,8 +531,8 @@ class ParticleSystem {
         
         const gradient = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
         gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
-        gradient.addColorStop(0.15, 'rgba(230, 230, 255, 0.9)');
-        gradient.addColorStop(0.4, 'rgba(100, 100, 255, 0.2)');
+        gradient.addColorStop(0.1, 'rgba(200, 255, 255, 0.8)'); // 青色核心
+        gradient.addColorStop(0.3, 'rgba(0, 200, 255, 0.3)');   // 蓝色光晕
         gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
         
         ctx.fillStyle = gradient;
